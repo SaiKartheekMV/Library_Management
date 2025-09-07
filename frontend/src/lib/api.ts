@@ -146,6 +146,12 @@ export const booksAPI = {
   getTrendingBooks: (limit?: number) => api.get('/books/trending', { params: { limit } }),
   
   getPopularBooks: (limit?: number) => api.get('/books/popular', { params: { limit } }),
+  
+  searchGoogleBooks: (query: string, limit?: number) => 
+    api.get('/books/google-search', { params: { q: query, limit } }),
+  
+  importFromGoogle: (data: { googleId: string; totalCopies: number; location?: any }) =>
+    api.post('/books/import-from-google', data),
 }
 
 // Users API

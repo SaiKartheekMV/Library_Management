@@ -166,6 +166,7 @@ export default function LoginPage() {
               <div className="text-xs text-gray-500 text-center">
                 <p><strong>Admin:</strong> admin@library.com / admin123</p>
                 <p><strong>Librarian:</strong> librarian@library.com / librarian123</p>
+                <p><strong>Student:</strong> student@library.com / student123</p>
                 <p><strong>Member:</strong> member@library.com / member123</p>
               </div>
             </div>

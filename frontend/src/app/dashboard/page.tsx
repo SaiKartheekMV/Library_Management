@@ -42,43 +42,48 @@ export default function DashboardPage() {
       name: 'Total Books',
       value: stats.totalBooks,
       icon: BookOpen,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      color: 'text-primary-600',
+      bgColor: 'bg-gradient-to-br from-primary-100 to-primary-200'
     },
     {
       name: 'Total Users',
       value: stats.totalUsers,
       icon: Users,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100'
+      color: 'text-emerald-600',
+      bgColor: 'bg-gradient-to-br from-emerald-100 to-emerald-200'
     },
     {
       name: 'Active Transactions',
       value: stats.activeTransactions,
       icon: FileText,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100'
+      color: 'text-orange-600',
+      bgColor: 'bg-gradient-to-br from-orange-100 to-orange-200'
     },
     {
       name: 'Total Reviews',
       value: stats.totalReviews,
       icon: Star,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      color: 'text-accent-600',
+      bgColor: 'bg-gradient-to-br from-accent-100 to-accent-200'
     }
   ]
 
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white overflow-hidden shadow rounded-lg">
+      <div className="bg-gradient-to-r from-primary-500 to-accent-500 overflow-hidden shadow-lg rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-white">
             Welcome back, {user?.firstName}!
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-primary-100">
             Here's what's happening in your library today.
           </p>
+          <div className="mt-3">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/20 text-white">
+              {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)} Account
+            </span>
+          </div>
         </div>
       </div>
 
@@ -235,7 +240,7 @@ export default function DashboardPage() {
             Quick Actions
           </h3>
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
               <BookOpen className="h-4 w-4 mr-2" />
               Add Book
             </button>

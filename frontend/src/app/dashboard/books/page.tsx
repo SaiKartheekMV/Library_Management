@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useBooksStore } from '@/store/booksStore'
 import { useAuthStore } from '@/store/authStore'
+import { booksAPI } from '@/lib/api'
+import { GoogleBook } from '@/types'
 import {
   BookOpen,
   Search,
-  Filter,
   Plus,
   Edit,
   Trash2,
@@ -14,8 +15,8 @@ import {
   BookMarked,
   Star,
   Users,
-  Calendar,
-  MapPin
+  Download,
+  ExternalLink
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -28,7 +29,6 @@ export default function BooksPage() {
     error, 
     fetchBooks, 
     deleteBook,
-    setFilters,
     clearFilters 
   } = useBooksStore()
   
@@ -36,8 +36,12 @@ export default function BooksPage() {
   const [selectedGenre, setSelectedGenre] = useState('')
   const [selectedAuthor, setSelectedAuthor] = useState('')
   const [showAvailableOnly, setShowAvailableOnly] = useState(false)
-  const [sortBy, setSortBy] = useState('newest')
+  const [sortBy, setSortBy] = useState<'newest' | 'title' | 'author' | 'rating' | 'popularity' | 'trending'>('newest')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showGoogleSearch, setShowGoogleSearch] = useState(false)
+  const [googleBooks, setGoogleBooks] = useState<GoogleBook[]>([])
+  const [googleSearchTerm, setGoogleSearchTerm] = useState('')
+  const [isSearchingGoogle, setIsSearchingGoogle] = useState(false)
 
   const genres = [
     'Fiction', 'Non-Fiction', 'Science', 'History', 'Biography', 
@@ -74,9 +78,9 @@ export default function BooksPage() {
       try {
         await deleteBook(bookId)
         toast.success('Book deleted successfully')
-      } catch (error) {
-        toast.error('Failed to delete book')
-      }
+    } catch {
+      toast.error('Failed to delete book')
+    }
     }
   }
 
@@ -99,6 +103,49 @@ export default function BooksPage() {
     setShowAvailableOnly(false)
     setSortBy('newest')
     clearFilters()
+  }
+
+  const searchGoogleBooks = async () => {
+    if (!googleSearchTerm.trim()) return
+    
+    setIsSearchingGoogle(true)
+    try {
+      const response = await booksAPI.searchGoogleBooks(googleSearchTerm, 20)
+      setGoogleBooks(response.data.books)
+    } catch {
+      toast.error('Failed to search Google Books')
+    } finally {
+      setIsSearchingGoogle(false)
+    }
+  }
+
+  const importGoogleBook = async (googleBook: GoogleBook) => {
+    try {
+      await booksAPI.importFromGoogle({
+        googleId: googleBook.googleId,
+        totalCopies: 1,
+        location: {
+          shelf: 'A1',
+          section: 'General',
+          floor: 1,
+          room: 'Main Library'
+        }
+      })
+      toast.success('Book imported successfully!')
+      setShowGoogleSearch(false)
+      // Refresh the books list
+      fetchBooks({
+        search: searchTerm,
+        genre: selectedGenre,
+        author: selectedAuthor,
+        available: showAvailableOnly,
+        sort: sortBy,
+        page: 1,
+        limit: 12
+      })
+    } catch {
+      toast.error('Failed to import book')
+    }
   }
 
   if (error) {
@@ -124,15 +171,28 @@ export default function BooksPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Books Management</h1>
-          <p className="text-gray-600">Manage your library's book collection</p>
+          <p className="text-gray-600">Manage your library&apos;s book collection</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Book
-        </button>
+        <div className="flex space-x-3">
+          {(user?.role === 'admin' || user?.role === 'librarian') && (
+            <>
+              <button
+                onClick={() => setShowGoogleSearch(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Import from Google
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Book
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -193,7 +253,7 @@ export default function BooksPage() {
             </label>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               {sortOptions.map(option => (
@@ -341,6 +401,132 @@ export default function BooksPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Google Books Search Modal */}
+      {showGoogleSearch && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Import Books from Google Books</h3>
+                <button
+                  onClick={() => setShowGoogleSearch(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search Input */}
+              <div className="flex space-x-2 mb-6">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={googleSearchTerm}
+                    onChange={(e) => setGoogleSearchTerm(e.target.value)}
+                    placeholder="Search for books on Google Books..."
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    onKeyPress={(e) => e.key === 'Enter' && searchGoogleBooks()}
+                  />
+                </div>
+                <button
+                  onClick={searchGoogleBooks}
+                  disabled={isSearchingGoogle || !googleSearchTerm.trim()}
+                  className="px-4 py-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-md hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSearchingGoogle ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+
+              {/* Google Books Results */}
+              {googleBooks.length > 0 && (
+                <div className="max-h-96 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {googleBooks.map((book: GoogleBook) => (
+                      <div key={book.googleId} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex space-x-4">
+                          {/* Book Cover */}
+                          <div className="flex-shrink-0">
+                            {book.coverImage ? (
+                              <img
+                                src={book.coverImage}
+                                alt={book.title}
+                                className="h-24 w-16 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="h-24 w-16 bg-gray-200 rounded flex items-center justify-center">
+                                <BookOpen className="h-8 w-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Book Info */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-gray-900 truncate" title={book.title}>
+                              {book.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 truncate" title={book.author}>
+                              by {book.author}
+                            </p>
+                            {book.publisher && (
+                              <p className="text-xs text-gray-500 truncate">
+                                {book.publisher} • {book.publicationYear}
+                              </p>
+                            )}
+                            {book.description && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                {book.description.substring(0, 100)}...
+                              </p>
+                            )}
+                            <div className="flex items-center space-x-2 mt-2">
+                              {book.averageRating > 0 && (
+                                <div className="flex items-center text-xs text-gray-500">
+                                  <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
+                                  {book.averageRating.toFixed(1)}
+                                </div>
+                              )}
+                              {book.previewLink && (
+                                <a
+                                  href={book.previewLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary-600 hover:text-primary-700 flex items-center"
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Preview
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Import Button */}
+                          <div className="flex-shrink-0">
+                            <button
+                              onClick={() => importGoogleBook(book)}
+                              className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs rounded-md hover:from-emerald-600 hover:to-emerald-700"
+                            >
+                              Import
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {googleBooks.length === 0 && googleSearchTerm && !isSearchingGoogle && (
+                <div className="text-center py-8 text-gray-500">
+                  No books found. Try a different search term.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

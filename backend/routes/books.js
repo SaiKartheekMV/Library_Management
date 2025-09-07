@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
+const axios = require('axios');
 const Book = require('../models/Book');
 const Transaction = require('../models/Transaction');
 const Review = require('../models/Review');
@@ -951,6 +952,210 @@ router.get('/popular', optionalAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve popular books',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/books/google-search:
+ *   get:
+ *     summary: Search books using Google Books API
+ *     tags: [Books]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Google Books search results
+ */
+router.get('/google-search', optionalAuth, async (req, res) => {
+  try {
+    const { q, limit = 10 } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    const googleBooksAPI = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${limit}&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
+    
+    const response = await axios.get(googleBooksAPI);
+    const books = response.data.items || [];
+
+    // Transform Google Books data to match our format
+    const transformedBooks = books.map(book => {
+      const volumeInfo = book.volumeInfo;
+      return {
+        googleId: book.id,
+        title: volumeInfo.title || 'Unknown Title',
+        author: volumeInfo.authors ? volumeInfo.authors.join(', ') : 'Unknown Author',
+        description: volumeInfo.description || '',
+        publisher: volumeInfo.publisher || 'Unknown Publisher',
+        publicationYear: volumeInfo.publishedDate ? new Date(volumeInfo.publishedDate).getFullYear() : null,
+        isbn: volumeInfo.industryIdentifiers?.find(id => id.type === 'ISBN_13')?.identifier || 
+              volumeInfo.industryIdentifiers?.find(id => id.type === 'ISBN_10')?.identifier || null,
+        pages: volumeInfo.pageCount || null,
+        language: volumeInfo.language || 'en',
+        genre: volumeInfo.categories ? volumeInfo.categories[0] : 'general',
+        coverImage: volumeInfo.imageLinks?.thumbnail || volumeInfo.imageLinks?.smallThumbnail || null,
+        previewLink: volumeInfo.previewLink,
+        infoLink: volumeInfo.infoLink,
+        averageRating: volumeInfo.averageRating || 0,
+        ratingsCount: volumeInfo.ratingsCount || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: { 
+        books: transformedBooks,
+        totalItems: response.data.totalItems || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Google Books search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search Google Books',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/books/import-from-google:
+ *   post:
+ *     summary: Import book from Google Books API
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - googleId
+ *               - totalCopies
+ *             properties:
+ *               googleId:
+ *                 type: string
+ *               totalCopies:
+ *                 type: integer
+ *               location:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: Book imported successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/import-from-google', authenticateToken, authorize('admin', 'librarian'), [
+  body('googleId').notEmpty().withMessage('Google Book ID is required'),
+  body('totalCopies').isInt({ min: 1 }).withMessage('Total copies must be at least 1'),
+  body('location.shelf').optional().isString().withMessage('Shelf must be a string'),
+  body('location.section').optional().isString().withMessage('Section must be a string'),
+  body('location.floor').optional().isInt({ min: 1 }).withMessage('Floor must be a positive integer'),
+  body('location.room').optional().isString().withMessage('Room must be a string')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { googleId, totalCopies, location } = req.body;
+
+    // Fetch book details from Google Books API
+    const googleBooksAPI = `https://www.googleapis.com/books/v1/volumes/${googleId}?key=${process.env.GOOGLE_BOOKS_API_KEY}`;
+    const response = await axios.get(googleBooksAPI);
+    const googleBook = response.data;
+
+    if (!googleBook) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found in Google Books'
+      });
+    }
+
+    const volumeInfo = googleBook.volumeInfo;
+
+    // Check if book already exists by ISBN
+    const isbn = volumeInfo.industryIdentifiers?.find(id => id.type === 'ISBN_13')?.identifier || 
+                 volumeInfo.industryIdentifiers?.find(id => id.type === 'ISBN_10')?.identifier;
+
+    if (isbn) {
+      const existingBook = await Book.findOne({ isbn });
+      if (existingBook) {
+        return res.status(409).json({
+          success: false,
+          message: 'Book with this ISBN already exists in the library'
+        });
+      }
+    }
+
+    // Create book data
+    const bookData = {
+      title: volumeInfo.title || 'Unknown Title',
+      author: volumeInfo.authors ? volumeInfo.authors.join(', ') : 'Unknown Author',
+      isbn: isbn || `GOOGLE_${googleId}`,
+      description: volumeInfo.description || '',
+      publisher: volumeInfo.publisher || 'Unknown Publisher',
+      publicationYear: volumeInfo.publishedDate ? new Date(volumeInfo.publishedDate).getFullYear() : new Date().getFullYear(),
+      pages: volumeInfo.pageCount || null,
+      language: volumeInfo.language || 'en',
+      genre: volumeInfo.categories ? volumeInfo.categories[0].toLowerCase().replace(/\s+/g, '-') : 'general',
+      totalCopies,
+      availableCopies: totalCopies,
+      coverImage: volumeInfo.imageLinks?.thumbnail || volumeInfo.imageLinks?.smallThumbnail || null,
+      averageRating: volumeInfo.averageRating || 0,
+      totalRatings: volumeInfo.ratingsCount || 0,
+      location: location || {},
+      createdBy: req.user._id
+    };
+
+    const book = new Book(bookData);
+    await book.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Book imported successfully from Google Books',
+      data: { book }
+    });
+
+  } catch (error) {
+    console.error('Import book error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Book with this ISBN already exists'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import book',
       error: error.message
     });
   }

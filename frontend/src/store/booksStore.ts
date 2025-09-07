@@ -1,13 +1,13 @@
 import { create } from 'zustand'
-import { Book, BookFilters, PaginationInfo, BookState } from '@/types'
+import { Book, BookFilters, BookState, BookForm } from '@/types'
 import { booksAPI } from '@/lib/api'
 
 interface BooksStore extends BookState {
   // Actions
   fetchBooks: (filters?: BookFilters) => Promise<void>
   fetchBook: (id: string) => Promise<void>
-  createBook: (bookData: any) => Promise<void>
-  updateBook: (id: string, bookData: any) => Promise<void>
+  createBook: (bookData: BookForm) => Promise<void>
+  updateBook: (id: string, bookData: Partial<BookForm>) => Promise<void>
   deleteBook: (id: string) => Promise<void>
   borrowBook: (id: string) => Promise<void>
   returnBook: (id: string, data?: { condition?: string; notes?: string }) => Promise<void>
@@ -62,10 +62,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch books'
+        error: (error as any).response?.data?.message || 'Failed to fetch books'
       })
       throw error
     }
@@ -83,10 +83,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch book'
+        error: (error as any).response?.data?.message || 'Failed to fetch book'
       })
       throw error
     }
@@ -104,10 +104,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to create book'
+        error: (error as any).response?.data?.message || 'Failed to create book'
       })
       throw error
     }
@@ -128,10 +128,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to update book'
+        error: (error as any).response?.data?.message || 'Failed to update book'
       })
       throw error
     }
@@ -149,10 +149,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to delete book'
+        error: (error as any).response?.data?.message || 'Failed to delete book'
       })
       throw error
     }
@@ -177,10 +177,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to borrow book'
+        error: (error as any).response?.data?.message || 'Failed to borrow book'
       })
       throw error
     }
@@ -205,10 +205,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to return book'
+        error: (error as any).response?.data?.message || 'Failed to return book'
       })
       throw error
     }
@@ -220,10 +220,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
     try {
       await booksAPI.renewBook(id)
       set({ isLoading: false, error: null })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to renew book'
+        error: (error as any).response?.data?.message || 'Failed to renew book'
       })
       throw error
     }
@@ -235,10 +235,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
     try {
       await booksAPI.reserveBook(id)
       set({ isLoading: false, error: null })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to reserve book'
+        error: (error as any).response?.data?.message || 'Failed to reserve book'
       })
       throw error
     }
@@ -250,10 +250,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
     try {
       await booksAPI.cancelReservation(id)
       set({ isLoading: false, error: null })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to cancel reservation'
+        error: (error as any).response?.data?.message || 'Failed to cancel reservation'
       })
       throw error
     }
@@ -271,10 +271,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch trending books'
+        error: (error as any).response?.data?.message || 'Failed to fetch trending books'
       })
       throw error
     }
@@ -292,10 +292,10 @@ export const useBooksStore = create<BooksStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch popular books'
+        error: (error as any).response?.data?.message || 'Failed to fetch popular books'
       })
       throw error
     }

@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
   // Role and Permissions
   role: {
     type: String,
-    enum: ['admin', 'librarian', 'member'],
+    enum: ['admin', 'librarian', 'member', 'student'],
     default: 'member'
   },
   isActive: {

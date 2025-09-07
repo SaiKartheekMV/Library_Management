@@ -5,7 +5,7 @@ export interface User {
   lastName: string
   email: string
   phone?: string
-  role: 'admin' | 'librarian' | 'member'
+  role: 'admin' | 'librarian' | 'member' | 'student'
   isActive: boolean
   libraryCardNumber: string
   membershipType: 'basic' | 'premium' | 'student' | 'faculty'
@@ -372,7 +372,7 @@ export interface BookFilters {
 
 export interface UserFilters {
   search?: string
-  role?: 'admin' | 'librarian' | 'member'
+  role?: 'admin' | 'librarian' | 'member' | 'student'
   membershipType?: 'basic' | 'premium' | 'student' | 'faculty'
   isActive?: boolean
   page?: number
@@ -550,4 +550,23 @@ export interface ReviewCardProps {
   onLike?: (reviewId: string) => void
   onComment?: (reviewId: string, content: string) => void
   showActions?: boolean
+}
+
+// Google Books API Types
+export interface GoogleBook {
+  googleId: string
+  title: string
+  author: string
+  description?: string
+  publisher?: string
+  publicationYear?: number
+  isbn?: string
+  pages?: number
+  language?: string
+  genre?: string
+  coverImage?: string
+  previewLink?: string
+  infoLink?: string
+  averageRating?: number
+  ratingsCount?: number
 }

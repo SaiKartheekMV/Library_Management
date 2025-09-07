@@ -1,6 +1,16 @@
 import { create } from 'zustand'
-import { Transaction, TransactionFilters, PaginationInfo, TransactionState } from '@/types'
+import { Transaction, TransactionFilters, TransactionState } from '@/types'
 import { transactionsAPI } from '@/lib/api'
+
+// Define proper error type
+interface APIError {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+  message?: string
+}
 
 interface TransactionsStore extends TransactionState {
   // Actions
@@ -23,11 +33,20 @@ interface TransactionsStore extends TransactionState {
   clearFilters: () => void
   setCurrentTransaction: (transaction: Transaction | null) => void
   clearError: () => void
+  fetchUserTransactions: (userId: string, filters?: TransactionFilters) => Promise<void>
+  returnBook: (transactionId: string, data?: { condition?: string; notes?: string }) => Promise<void>
+  renewBook: (transactionId: string) => Promise<void>
 }
 
 const defaultFilters: TransactionFilters = {
   page: 1,
   limit: 12
+}
+
+// Helper function to extract error message
+const getErrorMessage = (error: unknown): string => {
+  const apiError = error as APIError
+  return apiError.response?.data?.message || apiError.message || 'An unknown error occurred'
 }
 
 export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
@@ -55,10 +74,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch transactions'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -76,10 +95,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch transaction'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -100,10 +119,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to renew transaction'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -124,10 +143,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to return transaction'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -145,10 +164,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch overdue transactions'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -166,10 +185,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to fetch due soon transactions'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -190,10 +209,10 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
         isLoading: false,
         error: null
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
         isLoading: false,
-        error: error.response?.data?.message || 'Failed to update fine'
+        error: getErrorMessage(error)
       })
       throw error
     }
@@ -215,5 +234,74 @@ export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
 
   clearError: () => {
     set({ error: null })
+  },
+
+  fetchUserTransactions: async (userId: string, filters = {}) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      const currentFilters = { ...get().filters, ...filters, user: userId }
+      const response = await transactionsAPI.getTransactions(currentFilters)
+      const { transactions, pagination } = response.data.data
+      
+      set({
+        transactions,
+        pagination,
+        filters: currentFilters,
+        isLoading: false,
+        error: null
+      })
+    } catch (error: unknown) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error)
+      })
+      throw error
+    }
+  },
+
+  returnBook: async (transactionId: string, data) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      await transactionsAPI.returnTransaction(transactionId, data)
+      
+      set((state) => ({
+        transactions: state.transactions.filter(t => t._id !== transactionId),
+        currentTransaction: state.currentTransaction?._id === transactionId ? null : state.currentTransaction,
+        isLoading: false,
+        error: null
+      }))
+    } catch (error: unknown) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error)
+      })
+      throw error
+    }
+  },
+
+  renewBook: async (transactionId: string) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      const response = await transactionsAPI.renewTransaction(transactionId)
+      const { transaction } = response.data.data
+      
+      set((state) => ({
+        transactions: state.transactions.map(t => 
+          t._id === transactionId ? transaction : t
+        ),
+        currentTransaction: state.currentTransaction?._id === transactionId ? transaction : state.currentTransaction,
+        isLoading: false,
+        error: null
+      }))
+    } catch (error: unknown) {
+      set({
+        isLoading: false,
+        error: getErrorMessage(error)
+      })
+      throw error
+    }
   }
 }))
